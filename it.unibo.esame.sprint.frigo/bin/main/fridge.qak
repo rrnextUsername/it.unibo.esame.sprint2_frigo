@@ -1,0 +1,94 @@
+ System fridge 
+ 
+mqttBroker "localhost" : 1883    //192.168.1.18  192.168.43.229
+
+Event		modelContent		:	modelContent( content( ENTITY, INVENTORY ) ) 
+
+Dispatch 	changeInventory		: 	changeInventory( OPERATION, CATEGORY , NAME )
+Dispatch	queryPresence		:	queryPresence( CATEGORY, NAME )
+Dispatch	replyPresence		:	replyPresence( STATUS )
+Dispatch  	exposeFood     		: 	exposeFood	     
+ 
+Context ctxFridge      ip [host="localhost"    port=8038]   -mqtt
+
+QActor frontend_dummy context ctxFridge{
+	State s0 initial {
+		solve( consult("sysRules.pl")	 ) 
+		//run itunibo.coap.modelResourceCoap.create( myself, "frontend_dummy" ) //CoAP access
+	} Goto waitReply
+	
+	State waitReply{		
+	} Transition t0 whenEvent modelContent -> persistReply
+	
+	State persistReply{
+		run itunibo.frontend_dummy.frontend_dummySupport.persist( myself , currentMsg)
+	} Goto waitReply
+}
+
+QActor robot_dummy context ctxFridge{
+	State s0 initial {
+		solve( consult("sysRules.pl")	 ) 
+		//run itunibo.coap.modelResourceCoap.create( myself, "robot_dummy" ) //CoAP access
+	} Goto waitReply
+	
+	State waitReply{		
+	} Transition t0 whenMsg replyPresence -> persistReply
+	
+	State persistReply{
+		onMsg (replyPresence : replyPresence( STATUS ) ){
+			printCurrentMessage			
+			solve ( assert( result($payloadArg(0)) ) )
+		}
+	} Goto waitReply
+}
+
+QActor fridge context ctxFridge {
+	State s0 initial {
+		solve( consult("sysRules.pl")	 ) 
+		      
+		solve( consult("fridgeModel.pl")	 ) 
+		
+		solve( consult("presenza.pl")	 ) 
+		solve( consult("spostaEsterno.pl")	 )
+		
+		solve( showResourceModel ) 				
+		
+		//run itunibo.coap.modelResourceCoap.create( myself, "fridge" ) //CoAP access
+		
+	}Goto waitCmd
+	
+	State waitCmd {		
+	} Transition t0 whenMsg exposeFood -> exposeModel
+					whenMsg changeInventory -> changeInventory
+					whenMsg queryPresence -> replyQuery
+	
+	State changeInventory{
+		onMsg (changeInventory : changeInventory( OPERATION, CATEGORY , NAME ) ){
+			printCurrentMessage			
+			
+			solve( spostaEsterno( $payloadArg(2) , $payloadArg(1) , frigo , $payloadArg(0) ) )
+			
+			solve( showResourceModel ) 
+			run itunibo.fridge.fridgeResourceModelSupport.exposeFridgeModel( myself ) 	
+		}
+	}Goto waitCmd
+	
+	State replyQuery{
+		onMsg ( queryPresence : queryPresence( CATEGORY, NAME) ){
+			printCurrentMessage
+			["storeCurrentMessageForReply()"]
+			
+			solve( presenza($payloadArg(1),cibo,frigo) )
+			ifSolved {
+				["replyToCaller(\"replyPresence\", \"replyPresence(present)\")"]
+			} else {				
+				["replyToCaller(\"replyPresence\", \"replyPresence(absent)\")"]
+			}
+		}
+	} Goto waitCmd
+	
+	State exposeModel{
+		printCurrentMessage
+		run itunibo.fridge.fridgeResourceModelSupport.exposeFridgeModel( myself ) 
+	} Goto waitCmd
+}
