@@ -1,4 +1,25 @@
- System fridge 
+/*	REQUIREMENTS:
+ * 		->	expose its current content on the Maitre smart-phone;
+ * 		->	answer to questions about its content (e.g. if it contains food with a given code ).
+ * 	
+ * 	BACKLOG ITEM:
+ * 		->	FRIDGE	
+ * 
+ * 	SPRINT GOAL:
+ * 		->	il frigo deve poter esporre il suo contenuto
+ * 		->	il frigo deve rispondere a query che riguardano il suo contenuto
+ * 		->	il contenuto del frigo deve poter essere modificabile
+ */
+
+
+
+
+
+
+
+
+
+System fridge 
  
 mqttBroker "localhost" : 1883    //192.168.1.18  192.168.43.229
 
